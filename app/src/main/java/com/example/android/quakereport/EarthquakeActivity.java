@@ -15,53 +15,142 @@
  */
 package com.example.android.quakereport;
 
+import android.content.Context;
 import android.content.Intent;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
+import android.support.v4.app.LoaderManager;
+import android.support.v4.content.Loader;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
+import android.widget.ProgressBar;
+import android.widget.TextView;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
 
-public class EarthquakeActivity extends AppCompatActivity {
+public class EarthquakeActivity extends AppCompatActivity implements LoaderManager.LoaderCallbacks<LinkedList<Earthquake>> {
 
     public static final String LOG_TAG = EarthquakeActivity.class.getName();
+    public static final String USSG_URL = "http://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&orderby=time&minmag=1&limit=10";
+
+    EarthquakeAdapter earthquakeAdapter;
+
+    TextView mEmptyTextView;
+    ProgressBar mProgressBar;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.earthquake_activity);
 
-        // Create a fake list of earthquake locations.
-        ArrayList<Earthquake> earthquakes = QueryUtils.extractEarthquakes();
+        mEmptyTextView = (TextView) findViewById(R.id.empty_text_view);
+        mProgressBar = (ProgressBar) findViewById(R.id.loading_spinner);
+
+        ConnectivityManager connMgr = (ConnectivityManager)
+                getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo networkInfo = connMgr.getActiveNetworkInfo();
 
 
-        final EarthquakeAdapter earthquakeAdapter = new EarthquakeAdapter(this, earthquakes);
+        if (networkInfo != null && networkInfo.isConnected()) {
+            // fetch data
+
+            getSupportLoaderManager().initLoader(0, null, this);
+
+            earthquakeAdapter = new EarthquakeAdapter(this, new LinkedList<Earthquake>());
 
 
-        // Find a reference to the {@link ListView} in the layout
-        ListView earthquakeListView = (ListView) findViewById(R.id.list);
+            // Find a reference to the {@link ListView} in the layout
+            ListView earthquakeListView = (ListView) findViewById(R.id.list);
 
-        // Set the adapter on the {@link ListView}
-        // so the list can be populated in the user interface
-        earthquakeListView.setAdapter(earthquakeAdapter);
 
-        earthquakeListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                Log.i(LOG_TAG, "click");
-                Earthquake currentEarthquake = earthquakeAdapter.getItem(position);
-                String url = currentEarthquake.getUrl();
-                Uri webpage = Uri.parse(url);
-                Intent intent = new Intent(Intent.ACTION_VIEW, webpage);
-                if (intent.resolveActivity(getPackageManager()) != null) {
-                    startActivity(intent);
+
+            // Set the adapter on the {@link ListView}
+            // so the list can be populated in the user interface
+            earthquakeListView.setAdapter(earthquakeAdapter);
+
+            earthquakeListView.setEmptyView(mEmptyTextView);
+
+            earthquakeListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+                @Override
+                public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                    Log.i(LOG_TAG, "click");
+                    Earthquake currentEarthquake = earthquakeAdapter.getItem(position);
+                    String url = currentEarthquake.getUrl();
+                    Uri webpage = Uri.parse(url);
+                    Intent intent = new Intent(Intent.ACTION_VIEW, webpage);
+                    if (intent.resolveActivity(getPackageManager()) != null) {
+                        startActivity(intent);
+                    }
                 }
-            }
-        });
+            });
+        } else {
+            // display error
+            mProgressBar.setVisibility(View.GONE);
+            mEmptyTextView.setText("No Internet Connection");
+        }
+
+
+
     }
+
+    @Override
+    public Loader<LinkedList<Earthquake>> onCreateLoader(int id, Bundle args) {
+
+        Log.i(LOG_TAG, "on create loader");
+        return new EarthquakeLoader(EarthquakeActivity.this);
+
+
+    }
+
+    @Override
+    public void onLoadFinished(Loader<LinkedList<Earthquake>> loader, LinkedList<Earthquake> data) {
+        Log.i(LOG_TAG, "on load finished");
+
+        mProgressBar.setVisibility(View.GONE);
+        mEmptyTextView.setText("No data");
+        earthquakeAdapter.clear();
+
+
+        if(data != null && !data.isEmpty()){
+            earthquakeAdapter.addAll(data);
+        }
+
+   }
+
+    @Override
+    public void onLoaderReset(Loader<LinkedList<Earthquake>> loader) {
+        earthquakeAdapter.clear();
+        Log.i(LOG_TAG, "on loader reset");
+    }
+
+
+//    private class EarthquakeTask extends AsyncTask<String, Void, LinkedList<Earthquake>>{
+//
+//        @Override
+//        protected LinkedList<Earthquake> doInBackground(String... params) {
+//            if(params.length < 1 || params[0] == null){
+//                return null;
+//            }
+//
+//                return QueryUtils.fetchEarthquakeData(params[0]);
+//        }
+//
+//        @Override
+//        protected void onPostExecute(LinkedList<Earthquake> earthquakes) {
+//            if(earthquakes == null){
+//                return;
+//            }
+//
+//            updateUI(earthquakes);
+//        }
+//    }
 }
