@@ -14,10 +14,13 @@ import java.util.List;
 
 public class EarthquakeLoader extends AsyncTaskLoader<LinkedList<Earthquake>> {
 
+    private String mUrl;
     private final static String LOG_TAG = EarthquakeLoader.class.getName();
 
-    public EarthquakeLoader(Context context) {
+    public EarthquakeLoader(Context context, String url) {
         super(context);
+        mUrl = url;
+
     }
 
     @Override
@@ -29,6 +32,10 @@ public class EarthquakeLoader extends AsyncTaskLoader<LinkedList<Earthquake>> {
     @Override
     public LinkedList<Earthquake> loadInBackground() {
         Log.i(LOG_TAG, "on load in background");
-        return QueryUtils.fetchEarthquakeData(EarthquakeActivity.USSG_URL);
+
+        if (mUrl == null) {
+            return null;
+        }
+        return QueryUtils.fetchEarthquakeData(mUrl);
     }
 }
